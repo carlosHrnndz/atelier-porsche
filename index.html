@@ -1,0 +1,789 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#0c0c0e">
+<meta name="description" content="Simulador financiero interactivo para un taller boutique especialista Porsche en Madrid.">
+<title>Manufaktur Porsche · Simulador de Viabilidad</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="icon" href="icons/favicon-64.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..600;1,9..144,400&family=Hanken+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0c0c0e;--bg2:#101013;--panel:#16161a;--panel2:#1c1c22;
+  --line:#2a2a31;--line2:#36363f;
+  --ink:#ece8df;--mut:#8d897e;--mut2:#615e57;
+  --gold:#cBA45e;--gold-soft:#d8be86;--gold-dim:#6e5e38;
+  --red:#e0483a;--red-soft:#ff7a6e;--green:#54b58a;--green-soft:#7fe0b3;
+  --glass:rgba(22,22,26,.55);--glass-line:rgba(216,190,134,.18);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth;-webkit-text-size-adjust:100%}
+body{background:var(--bg);color:var(--ink);font-family:'Hanken Grotesk',sans-serif;
+  overflow-x:hidden;-webkit-font-smoothing:antialiased;line-height:1.5}
+/* film grain + vignette overlays */
+.grain,.vignette{position:fixed;inset:0;pointer-events:none;z-index:60}
+.grain{opacity:.05;mix-blend-mode:overlay;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")}
+.vignette{background:radial-gradient(120% 90% at 50% 40%,transparent 55%,rgba(0,0,0,.55) 100%);z-index:1}
+.scanline{position:fixed;inset:0;pointer-events:none;z-index:61;opacity:.4;
+  background:repeating-linear-gradient(to bottom,transparent 0 3px,rgba(0,0,0,.04) 3px 4px)}
+
+/* ---------- HERO ---------- */
+.hero{position:relative;min-height:100svh;display:flex;align-items:center;justify-content:center;
+  text-align:center;overflow:hidden;padding:30px}
+.hero .layer{position:absolute;inset:-12% -6%;will-change:transform}
+.hero .l-glow{background:
+  radial-gradient(60% 50% at 50% 30%,rgba(203,164,94,.16),transparent 60%),
+  radial-gradient(50% 40% at 80% 80%,rgba(203,164,94,.07),transparent 60%)}
+.hero .l-grid{opacity:.5;background-image:
+  linear-gradient(rgba(203,164,94,.05) 1px,transparent 1px),
+  linear-gradient(90deg,rgba(203,164,94,.05) 1px,transparent 1px);
+  background-size:64px 64px;mask:radial-gradient(70% 60% at 50% 45%,#000,transparent 80%)}
+.hero .l-rings{display:flex;align-items:center;justify-content:center}
+.ring{position:absolute;border:1px solid rgba(216,190,134,.10);border-radius:50%}
+.hero-inner{position:relative;z-index:5;max-width:920px}
+.eyebrow{font-size:12px;letter-spacing:.5em;text-transform:uppercase;color:var(--gold);font-weight:600;margin-bottom:22px}
+.hero h1{font-family:'Fraunces',serif;font-weight:300;font-size:clamp(42px,9vw,108px);line-height:.92;letter-spacing:-.02em}
+.hero h1 em{font-style:italic;color:var(--gold-soft)}
+.hero p{color:var(--mut);font-size:clamp(15px,2vw,19px);max-width:560px;margin:24px auto 0}
+.scrollcue{position:absolute;bottom:26px;left:50%;transform:translateX(-50%);z-index:5;
+  color:var(--mut2);font-size:11px;letter-spacing:.3em;text-transform:uppercase;display:flex;flex-direction:column;align-items:center;gap:10px}
+.scrollcue .line{width:1px;height:42px;background:linear-gradient(var(--gold),transparent);animation:cue 2.2s infinite}
+@keyframes cue{0%{transform:scaleY(0);transform-origin:top}40%{transform:scaleY(1);transform-origin:top}60%{transform:scaleY(1);transform-origin:bottom}100%{transform:scaleY(0);transform-origin:bottom}}
+
+/* ---------- SECTIONS ---------- */
+.wrap{max-width:1800px;margin:0 auto;padding:0 clamp(24px,4vw,72px)}
+section.block{padding:clamp(60px,10vw,120px) 0;position:relative;z-index:2}
+.reveal{opacity:0;transform:translateY(38px);transition:opacity .9s cubic-bezier(.2,.7,.2,1),transform .9s cubic-bezier(.2,.7,.2,1)}
+.reveal.in{opacity:1;transform:none}
+.sec-head{max-width:680px;margin-bottom:40px}
+.sec-head .k{font-size:11px;letter-spacing:.4em;text-transform:uppercase;color:var(--gold);font-weight:600}
+.sec-head h2{font-family:'Fraunces',serif;font-weight:300;font-size:clamp(28px,5vw,46px);line-height:1.02;margin-top:12px;letter-spacing:-.01em}
+.sec-head h2 em{font-style:italic;color:var(--gold-soft)}
+.sec-head p{color:var(--mut);margin-top:14px;font-size:15px}
+
+/* simulator layout */
+.sim{display:grid;grid-template-columns:360px minmax(0,1fr);gap:28px;align-items:start}
+@media(max-width:1000px){.sim{grid-template-columns:1fr}}
+.glass{background:var(--glass);border:1px solid var(--glass-line);border-radius:20px;
+  backdrop-filter:blur(16px) saturate(1.2);-webkit-backdrop-filter:blur(16px) saturate(1.2);
+  box-shadow:0 30px 70px -30px rgba(0,0,0,.8)}
+.controls{padding:22px;position:sticky;top:24px;max-height:calc(100vh - 48px);overflow-y:auto}
+.controls::-webkit-scrollbar{width:7px}
+.controls::-webkit-scrollbar-thumb{background:var(--line2);border-radius:7px}
+.controls::-webkit-scrollbar-track{background:transparent}
+
+.presets{display:grid;gap:8px;margin-bottom:8px}
+.preset{cursor:pointer;text-align:left;border:1px solid var(--line2);background:var(--panel2);color:var(--ink);
+  padding:11px 14px;border-radius:12px;font-family:inherit;font-size:13px;font-weight:500;transition:.2s;
+  display:flex;justify-content:space-between;gap:8px;align-items:center}
+.preset:hover{border-color:var(--gold-dim);transform:translateX(3px)}
+.preset.active{border-color:var(--gold);background:linear-gradient(100deg,rgba(203,164,94,.16),var(--panel2));box-shadow:0 0 0 1px rgba(203,164,94,.3) inset}
+.preset small{color:var(--mut);font-weight:400;font-size:11px}.preset.active small{color:var(--gold-soft)}
+
+.acc{border-top:1px solid var(--line);margin-top:14px}
+.acc>summary{cursor:pointer;list-style:none;padding:14px 2px 10px;font-size:10px;letter-spacing:.28em;
+  text-transform:uppercase;color:var(--gold);font-weight:700;display:flex;justify-content:space-between;align-items:center}
+.acc>summary::-webkit-details-marker{display:none}
+.acc>summary::after{content:"+";color:var(--mut);font-size:15px}
+.acc[open]>summary::after{content:"–"}
+.field{margin:11px 0}
+.field .lab{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px;gap:8px}
+.field .lab span{font-size:13px;color:var(--mut)}
+.field .row{display:flex;gap:8px;align-items:center}
+input[type=range]{-webkit-appearance:none;appearance:none;flex:1;height:4px;border-radius:4px;background:var(--line2);outline:none;cursor:pointer}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;background:var(--gold);border:2px solid var(--bg);box-shadow:0 0 0 1px var(--gold);transition:.15s}
+input[type=range]::-webkit-slider-thumb:hover{transform:scale(1.18)}
+input[type=range]::-moz-range-thumb{width:15px;height:15px;border:2px solid var(--bg);border-radius:50%;background:var(--gold);cursor:pointer}
+input.num{width:92px;background:var(--bg2);border:1px solid var(--line2);color:var(--gold-soft);
+  font-family:'JetBrains Mono',monospace;font-size:12px;padding:6px 8px;border-radius:8px;text-align:right}
+input.num:focus{outline:none;border-color:var(--gold)}
+.derived{font-size:11px;color:var(--mut2);font-family:'JetBrains Mono',monospace;margin-top:4px}
+.toggle{display:flex;gap:8px}
+.toggle button{flex:1;cursor:pointer;border:1px solid var(--line2);background:var(--panel2);color:var(--mut);
+  padding:9px;border-radius:10px;font-family:inherit;font-size:13px;font-weight:600;transition:.2s}
+.toggle button.on{background:var(--gold);color:#1a1408;border-color:var(--gold)}
+
+/* stage */
+.stage{display:flex;flex-direction:column;gap:22px;perspective:1400px}
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+@media(max-width:760px){.kpis{grid-template-columns:repeat(2,1fr)}}
+.kpi{padding:18px 16px;border-radius:16px;transform-style:preserve-3d;transition:transform .12s ease-out,border-color .3s;position:relative;overflow:hidden}
+.kpi::after{content:"";position:absolute;inset:0;pointer-events:none;background:radial-gradient(150px 100px at var(--mx,50%) var(--my,0%),rgba(203,164,94,.13),transparent 70%);opacity:0;transition:.3s}
+.kpi:hover::after{opacity:1}
+.kpi .klab{font-size:10.5px;text-transform:uppercase;letter-spacing:.12em;color:var(--mut2);font-weight:600;transform:translateZ(18px)}
+.kpi .kval{font-family:'Fraunces',serif;font-size:clamp(20px,2.4vw,30px);font-weight:400;margin-top:8px;line-height:1;transform:translateZ(36px)}
+.kpi .ksub{font-size:11px;color:var(--mut);margin-top:6px;font-family:'JetBrains Mono',monospace;transform:translateZ(12px)}
+.kpi.danger{border-color:rgba(224,72,58,.5)}.kpi.danger .kval{color:var(--red-soft)}
+.kpi.ok{border-color:rgba(84,181,138,.45)}.kpi.ok .kval{color:var(--green-soft)}
+.chartcard{padding:24px 22px 12px;transform-style:preserve-3d;transition:transform .15s ease-out}
+.chart-head{display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:8px;margin-bottom:4px}
+.chart-head h3{font-family:'Fraunces',serif;font-weight:400;font-size:21px}
+.legend{display:flex;gap:14px;font-size:12px;color:var(--mut);flex-wrap:wrap}
+  .legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px;vertical-align:middle}
+  .layer-toggle {
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 10px;
+    border-radius: 8px;
+    border: 1px solid var(--line2);
+    background: var(--panel2);
+    transition: all .2s;
+    user-select: none;
+    font-size: 11.5px;
+    color: var(--mut);
+  }
+  .layer-toggle:hover {
+    border-color: var(--gold-dim);
+    color: var(--ink);
+  }
+  .layer-toggle.active {
+    border-color: var(--gold);
+    background: rgba(203,164,94,.08);
+    color: var(--gold-soft);
+  }
+  .layer-toggle i {
+    display: inline-block;
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    margin-right: 6px;
+    transition: opacity .2s;
+  }
+  .layer-toggle:not(.active) i {
+    opacity: 0.3;
+  }
+svg{width:100%;height:auto;display:block;overflow:visible}
+.tip{font-size:12px;color:var(--mut);font-family:'JetBrains Mono',monospace;margin-top:4px}
+.insight{padding:16px 20px;border-radius:14px;border-left:3px solid var(--gold);font-size:14px;line-height:1.55;
+  background:linear-gradient(120deg,rgba(203,164,94,.07),var(--glass))}
+.insight b{color:var(--gold-soft)}
+
+/* phases timeline */
+.phases{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
+@media(max-width:860px){.phases{grid-template-columns:1fr 1fr}}
+@media(max-width:520px){.phases{grid-template-columns:1fr}}
+.phase{padding:20px;border-radius:16px;position:relative}
+.phase .pn{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--gold);font-weight:600}
+.phase h4{font-family:'Fraunces',serif;font-weight:400;font-size:19px;margin:8px 0 6px}
+.phase p{font-size:13px;color:var(--mut)}
+footer{padding:50px 24px 80px;text-align:center;color:var(--mut2);font-size:12px;line-height:1.7;border-top:1px solid var(--line);margin-top:30px}
+.install{display:inline-block;margin-top:14px;cursor:pointer;border:1px solid var(--gold-dim);background:transparent;color:var(--gold-soft);
+  padding:10px 18px;border-radius:999px;font-family:inherit;font-size:13px;font-weight:600;transition:.2s}
+.install:hover{background:rgba(203,164,94,.12)}
+@media(prefers-reduced-motion:reduce){.reveal{transition:none;opacity:1;transform:none}.scrollcue{display:none}}
+
+  /* help icons + tooltips */
+  .help{display:inline-flex;align-items:center;justify-content:center;width:15px;height:15px;border-radius:50%;
+    border:1px solid var(--gold-dim);color:var(--gold-soft);font-size:10px;font-style:italic;font-family:'Fraunces',serif;
+    cursor:help;margin-left:5px;vertical-align:middle;user-select:none;transition:.2s;flex-shrink:0}
+  .help:hover{background:var(--gold);color:#1a1408;border-color:var(--gold)}
+  .tooltip{position:absolute;z-index:200;max-width:250px;background:#0a0a0c;border:1px solid var(--gold-dim);
+    border-radius:10px;padding:10px 13px;font-size:12.5px;line-height:1.5;color:var(--ink);
+    box-shadow:0 16px 40px -10px rgba(0,0,0,.85);opacity:0;pointer-events:none;transform:translateY(-4px);transition:.16s}
+  .tooltip.show{opacity:1;transform:translateY(0)}
+  /* donut + reporte */
+  .report{display:grid;grid-template-columns:260px 1fr;gap:24px;align-items:center}
+  @media(max-width:680px){.report{grid-template-columns:1fr}}
+  #donut{width:220px;height:220px;margin:0 auto}
+  .donut-legend{display:flex;flex-direction:column;gap:7px;font-size:13px;color:var(--mut)}
+  .donut-legend i{display:inline-block;width:11px;height:11px;border-radius:3px;margin-right:8px;vertical-align:middle}
+  .donut-legend b{color:var(--ink);font-family:'JetBrains Mono',monospace;font-size:12px}
+  .capex-bars{display:flex;flex-direction:column;gap:8px;margin-top:8px}
+  .bar{display:grid;grid-template-columns:160px 1fr 90px;gap:10px;align-items:center;font-size:12.5px;color:var(--mut)}
+  @media(max-width:560px){.bar{grid-template-columns:110px 1fr 76px}}
+  .bar .bl{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .bar .bt{height:8px;background:var(--line2);border-radius:6px;overflow:hidden}
+  .bar .bf{display:block;height:100%;background:linear-gradient(90deg,var(--gold-dim),var(--gold));border-radius:6px}
+  .bar .bv{text-align:right;font-family:'JetBrains Mono',monospace;color:var(--gold-soft)}
+  .bar.tot{border-top:1px solid var(--line);padding-top:8px;margin-top:4px;color:var(--ink);font-weight:600}
+  .bar.tot .bv{color:var(--ink)}
+  .capex-summary{display:flex;flex-wrap:wrap;gap:10px;margin:10px 0 4px}
+  .capex-summary .cs{flex:1;min-width:120px;background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:11px 13px}
+  .capex-summary .cs .l{font-size:10.5px;text-transform:uppercase;letter-spacing:.1em;color:var(--mut2)}
+  .capex-summary .cs .v{font-family:'Fraunces',serif;font-size:19px;margin-top:3px}
+  .capex-summary .cs.good .v{color:var(--green-soft)}.capex-summary .cs.bad .v{color:var(--red-soft)}
+  .warn{background:rgba(224,72,58,.12);border:1px solid rgba(224,72,58,.4);color:var(--red-soft);
+    border-radius:10px;padding:10px 13px;font-size:13px;margin-top:8px}
+
+  /* report cards side-by-side on wide screens to fill 16:9 */
+  @media(min-width:1100px){
+    .stage{display:grid;grid-template-columns:1fr 1fr;gap:22px;align-content:start}
+    .stage .kpis{grid-column:1 / -1}
+    .stage #chartcard{grid-column:1 / -1}
+    .stage #insight{grid-column:1 / -1}
+    #opexCard{grid-column:1; margin:0}
+    #capexCard{grid-column:2; margin:0}
+    #pnlCard{grid-column:1 / -1}
+  }
+  #opexCard .report{grid-template-columns:200px 1fr}
+  @media(max-width:520px){#opexCard .report{grid-template-columns:1fr}}
+
+  /* ultra-wide: keep chart from stretching too flat, fill X fully */
+  #chartcard svg#chart{max-height:420px}
+  @media(min-width:1500px){
+    .stage{gap:24px}
+    #opexCard .report{grid-template-columns:240px 1fr}
+  }
+  @media(min-width:1700px){
+    .sim{grid-template-columns:380px minmax(0,1fr)}
+  }
+
+  /* ---------- P&L monthly table ---------- */
+  .pnl-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;margin-top:8px}
+  .pnl-scroll::-webkit-scrollbar{height:6px}
+  .pnl-scroll::-webkit-scrollbar-thumb{background:var(--line2);border-radius:6px}
+  .pnl{border-collapse:collapse;width:100%;min-width:700px;font-size:12px;font-family:'JetBrains Mono',monospace}
+  .pnl th,.pnl td{padding:7px 10px;text-align:right;white-space:nowrap}
+  .pnl th:first-child,.pnl td:first-child{text-align:left;position:sticky;left:0;background:var(--panel);z-index:2}
+  .pnl thead th{font-family:'Hanken Grotesk',sans-serif;font-size:10.5px;text-transform:uppercase;letter-spacing:.08em;
+    color:var(--mut2);font-weight:600;border-bottom:1px solid var(--line2);padding-bottom:10px}
+  .pnl tbody td{border-bottom:1px solid var(--line);color:var(--mut)}
+  .pnl .sec-label{font-family:'Hanken Grotesk',sans-serif;font-weight:600;font-size:11px;
+    text-transform:uppercase;letter-spacing:.1em;color:var(--gold);padding-top:14px;border-bottom:none}
+  .pnl .sub-total td{font-weight:600;color:var(--ink);border-bottom:1px solid var(--line2)}
+  .pnl .grand td{font-weight:700;font-size:13px;border-top:2px solid var(--gold-dim);border-bottom:none;padding-top:10px;padding-bottom:10px}
+  .pnl .grand.pos td:not(:first-child){color:var(--green-soft)}
+  .pnl .grand.neg td:not(:first-child){color:var(--red-soft)}
+  .pnl .cash td{color:var(--gold-soft);font-weight:600}
+  .pnl .neg-val{color:var(--red-soft)}
+  .pnl .pos-val{color:var(--green-soft)}
+
+  /* ============ RESPONSIVE / MÓVIL (revisión completa) ============ */
+  html,body{max-width:100%;overflow-x:hidden}
+  *{min-width:0}
+  /* tablet */
+  @media(max-width:1000px){
+    .sim{grid-template-columns:1fr;gap:18px}
+    .controls{position:static;max-height:none;width:100%}
+    .stage{display:flex;flex-direction:column;gap:18px}
+    #opexCard,#capexCard{grid-column:auto;margin:0}
+  }
+  /* móvil grande */
+  @media(max-width:680px){
+    .wrap{padding:0 16px}
+    section.block{padding:48px 0}
+    .sec-head{margin-bottom:26px}
+    .kpis{grid-template-columns:1fr 1fr;gap:10px}
+    .kpi{padding:14px 12px}
+    .kpi .kval{font-size:22px}
+    .chartcard{padding:16px 12px 10px}
+    .chart-head{flex-direction:column;align-items:flex-start;gap:6px}
+    .chart-head h3{font-size:18px}
+    .legend{font-size:11px;gap:10px}
+    #chartcard svg#chart{max-height:300px}
+    .report{grid-template-columns:1fr;gap:14px;text-align:center}
+    #donut{width:180px;height:180px}
+    .donut-legend{text-align:left}
+    .bar{grid-template-columns:96px 1fr 64px;gap:7px;font-size:11.5px}
+    /* sliders + número en una línea cómoda */
+    .field .row{flex-wrap:nowrap}
+    input.num{width:74px;font-size:11px;padding:5px 6px}
+    input[type=range]{min-width:0}
+    .presets{gap:7px}
+    .preset{padding:10px 12px;font-size:12.5px}
+    .capex-summary{flex-direction:column;gap:8px}
+    .capex-summary .cs{min-width:0;width:100%}
+    /* hero más contenido */
+    .hero{padding:24px;min-height:90svh}
+    .hero h1{font-size:clamp(34px,11vw,56px)}
+    .hero p{font-size:15px}
+    /* tooltips no se salen */
+    .tooltip{max-width:min(86vw,280px)}
+    /* toggles de equipo */
+    .toggle button{padding:8px;font-size:12px}
+  }
+  /* móvil pequeño */
+  @media(max-width:380px){
+    .kpis{grid-template-columns:1fr}
+    .bar{grid-template-columns:84px 1fr 58px}
+    input.num{width:64px}
+  }
+
+  /* presets custom */
+  .save-box{display:flex;flex-direction:column;gap:8px;margin-bottom:8px}
+  .scenario-name{width:100%;background:var(--bg2);border:1px solid var(--line2);color:var(--ink);
+    font-family:'Hanken Grotesk';font-size:13px;padding:9px 11px;border-radius:10px}
+  .scenario-name:focus{outline:none;border-color:var(--gold)}
+  .save-actions{display:flex;gap:8px}
+  .btn-gold{flex:1;cursor:pointer;border:none;background:var(--gold);color:#1a1408;font-weight:600;
+    font-family:'Hanken Grotesk';font-size:13px;padding:9px;border-radius:10px;transition:.2s}
+  .btn-gold:hover{background:var(--gold-soft)}
+  .btn-ghost{flex:1;cursor:pointer;border:1px solid var(--gold-dim);background:transparent;color:var(--gold-soft);
+    font-family:'Hanken Grotesk';font-size:12.5px;padding:9px;border-radius:10px;transition:.2s}
+  .btn-ghost:hover{background:rgba(203,164,94,.12)}
+  .custom-msg{font-size:12px;color:var(--green-soft);min-height:0;max-height:0;overflow:hidden;opacity:0;transition:.3s;margin:0}
+  .custom-msg.show{min-height:auto;max-height:60px;opacity:1;margin:6px 0}
+  .custom-list{display:flex;flex-direction:column;gap:6px;margin-top:6px}
+  .custom-empty{font-size:12px;color:var(--mut2);line-height:1.5;padding:4px 0}
+  .custom-row{display:grid;grid-template-columns:1fr auto auto;gap:6px;align-items:center}
+  .custom-load{cursor:pointer;text-align:left;border:1px solid var(--line2);background:var(--panel2);
+    color:var(--ink);padding:9px 11px;border-radius:9px;font-family:'Hanken Grotesk';font-size:12.5px;font-weight:500;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;transition:.18s}
+  .custom-load:hover{border-color:var(--gold-dim);color:var(--gold-soft)}
+  .custom-share,.custom-del{cursor:pointer;border:1px solid var(--line2);background:var(--panel2);
+    color:var(--mut);width:34px;height:34px;border-radius:9px;font-size:13px;transition:.18s;flex-shrink:0}
+  .custom-share:hover{border-color:var(--gold);color:var(--gold-soft)}
+  .custom-del:hover{border-color:var(--red);color:var(--red-soft)}
+
+  /* presets custom como botones */
+  .preset-custom{position:relative;padding-right:34px}
+  .preset-custom small{color:var(--gold-dim)}
+  .preset-custom.active small{color:var(--gold-soft)}
+  .preset-del{position:absolute;right:8px;top:50%;transform:translateY(-50%);
+    width:22px;height:22px;display:flex;align-items:center;justify-content:center;
+    border-radius:6px;font-size:12px;color:var(--mut2);background:transparent;transition:.15s}
+  .preset-del:hover{background:rgba(224,72,58,.18);color:var(--red-soft)}
+  .save-box{display:flex;flex-direction:column;gap:8px;margin:4px 0 8px}
+  .scenario-name{width:100%;background:var(--bg2);border:1px solid var(--line2);color:var(--ink);
+    font-family:'Hanken Grotesk';font-size:13px;padding:9px 11px;border-radius:10px}
+  .scenario-name:focus{outline:none;border-color:var(--gold)}
+  .btn-gold{cursor:pointer;border:none;background:var(--gold);color:#1a1408;font-weight:600;
+    font-family:'Hanken Grotesk';font-size:13px;padding:10px;border-radius:10px;transition:.2s}
+  .btn-gold:hover{background:var(--gold-soft)}
+  .custom-msg{font-size:12px;color:var(--green-soft);max-height:0;overflow:hidden;opacity:0;transition:.3s}
+  .custom-msg.show{max-height:60px;opacity:1;margin-top:2px}
+
+  .scenario-desc{resize:vertical;min-height:46px;font-family:'Hanken Grotesk';line-height:1.4}
+  .preset-custom{padding-right:54px}
+  .preset-info{position:absolute;right:32px;top:50%;transform:translateY(-50%);margin:0}
+
+  /* ayudas / subvenciones */
+  .ayudas-intro{font-size:11.5px;color:var(--mut2);line-height:1.5;margin-bottom:10px}
+  .ayudas-list{display:flex;flex-direction:column;gap:8px}
+  .ayuda-row{border:1px solid var(--line2);background:var(--panel2);border-radius:12px;padding:10px 12px;transition:.2s}
+  .ayuda-row.ayuda-on{border-color:var(--gold-dim);background:linear-gradient(100deg,rgba(203,164,94,.10),var(--panel2))}
+  .ayuda-main{display:flex;align-items:center;gap:11px}
+  .ayuda-toggle{flex-shrink:0;cursor:pointer;width:40px;height:23px;border-radius:999px;border:1px solid var(--line2);
+    background:var(--bg2);position:relative;transition:.2s;padding:0}
+  .ayuda-row.ayuda-on .ayuda-toggle{background:var(--gold);border-color:var(--gold)}
+  .ayuda-toggle .dot{position:absolute;top:2px;left:2px;width:17px;height:17px;border-radius:50%;background:var(--mut);transition:.2s}
+  .ayuda-row.ayuda-on .ayuda-toggle .dot{left:19px;background:#1a1408}
+  .ayuda-txt{min-width:0}
+  .ayuda-name{font-size:13px;color:var(--ink);font-weight:500;line-height:1.3}
+  .ayuda-meta{font-size:11px;color:var(--mut);margin-top:2px}
+  .ayuda-nivel{color:var(--gold-soft);font-weight:600}
+
+  /* ===== radar de riesgos premortem ===== */
+  .riskcard{padding-bottom:18px}
+  .risk-list{display:flex;flex-direction:column;gap:9px;margin:6px 0 14px}
+  .risk-item{display:grid;grid-template-columns:auto 1fr;gap:11px;align-items:start;
+    border:1px solid var(--line2);border-radius:12px;padding:11px 13px;background:var(--panel2);
+    animation:riskIn .4s cubic-bezier(.2,.7,.2,1) both}
+  @keyframes riskIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+  .risk-item .sev{flex-shrink:0;font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:600;
+    text-transform:uppercase;letter-spacing:.08em;padding:3px 8px;border-radius:999px;margin-top:1px}
+  .risk-item.alta{border-color:rgba(224,72,58,.45)}
+  .risk-item.alta .sev{background:rgba(224,72,58,.16);color:var(--red-soft)}
+  .risk-item.media{border-color:rgba(203,164,94,.4)}
+  .risk-item.media .sev{background:rgba(203,164,94,.14);color:var(--gold-soft)}
+  .risk-item.baja .sev{background:rgba(141,137,126,.15);color:var(--mut)}
+  .risk-item .rt{font-size:13.5px;font-weight:600;color:var(--ink)}
+  .risk-item .rd{font-size:12.5px;color:var(--mut);line-height:1.5;margin-top:3px}
+  .risk-ok{display:flex;align-items:center;gap:10px;border:1px solid rgba(84,181,138,.4);border-radius:12px;
+    padding:13px;background:rgba(84,181,138,.08);color:var(--green-soft);font-size:13.5px;font-weight:500}
+  .risk-static{border-top:1px solid var(--line);padding-top:12px}
+  .risk-static-title{font-size:10.5px;letter-spacing:.18em;text-transform:uppercase;color:var(--mut2);font-weight:700;margin-bottom:8px}
+  .risk-static ul{list-style:none;display:flex;flex-direction:column;gap:7px}
+  .risk-static li{font-size:12.5px;color:var(--mut);line-height:1.5;padding-left:16px;position:relative}
+  .risk-static li::before{content:"·";position:absolute;left:4px;color:var(--gold)}
+  .risk-static li b{color:var(--ink);font-weight:600}
+  /* ===== barra de exportación ===== */
+  .exportbar{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:15px 18px;border-radius:16px}
+  .exportbar-txt{display:flex;flex-direction:column;gap:2px}
+  .exportbar-txt b{font-size:14px;color:var(--ink)}
+  .exportbar-txt span{font-size:12px;color:var(--mut)}
+  .exportbar .btn-gold{flex-shrink:0;padding:11px 18px;font-size:13.5px}
+  @media(max-width:560px){.exportbar{flex-direction:column;align-items:stretch;text-align:center}}
+  /* ===== animaciones de pulido ===== */
+  .kval.bump{animation:bump .45s cubic-bezier(.2,.7,.3,1.2)}
+  @keyframes bump{0%{transform:scale(1)}35%{transform:scale(1.07)}100%{transform:scale(1)}}
+  #chart{transition:opacity .25s ease}
+  .acc>summary{transition:color .2s}
+  .acc>summary:hover{color:var(--gold-soft)}
+  button:focus-visible,input:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+  @media(prefers-reduced-motion:reduce){.kval.bump{animation:none}.risk-item{animation:none}}
+  /* grid placement on wide screens */
+  @media(min-width:1100px){
+    .stage #riskCard{grid-column:1 / -1}
+    .stage #exportBar{grid-column:1 / -1}
+  }
+
+  .obs-link{display:inline-block;margin-top:22px;text-decoration:none;color:var(--gold-soft);font-size:14px;
+    border:1px solid var(--gold-dim);padding:12px 20px;border-radius:999px;transition:.25s;background:rgba(203,164,94,.07)}
+  .obs-link:hover{background:rgba(203,164,94,.16);transform:translateY(-2px)}
+
+  /* grupos lógicos de controles */
+  .acc-group{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.22em;text-transform:uppercase;
+    color:var(--gold);font-weight:600;margin:18px 0 6px;padding-bottom:5px;border-bottom:1px solid var(--gold-dim);opacity:.85}
+  .acc-group:first-of-type{margin-top:14px}
+  /* herramientas: buscador + colapsar */
+  .ctrl-tools{display:flex;gap:8px;margin:14px 0 4px;position:sticky;top:0;z-index:5;background:var(--panel);padding:4px 0}
+  .ctrl-search{flex:1;background:var(--bg2);border:1px solid var(--line2);color:var(--ink);font-family:'Hanken Grotesk';
+    font-size:13px;padding:9px 12px;border-radius:10px}
+  .ctrl-search:focus{outline:none;border-color:var(--gold)}
+  .ctrl-btn{cursor:pointer;border:1px solid var(--line2);background:var(--panel2);color:var(--gold-soft);
+    font-size:16px;width:40px;border-radius:10px;transition:.2s}
+  .ctrl-btn:hover{border-color:var(--gold-dim);background:rgba(203,164,94,.1)}
+  .btn-ghost{cursor:pointer;border:1px solid var(--line2);background:transparent;color:var(--mut);
+    font-family:'Hanken Grotesk';font-size:12.5px;padding:9px;border-radius:10px;transition:.2s;width:100%;margin-top:6px}
+  .btn-ghost:hover{border-color:var(--gold-dim);color:var(--gold-soft)}
+
+  /* Estilos para selectores de cantidad en CAPEX */
+  .cx-qty-row {
+    display: flex;
+    gap: 12px;
+    margin-top: 6px;
+    background: var(--bg2);
+    padding: 8px 12px;
+    border-radius: 10px;
+    border: 1px solid var(--line2);
+    align-items: center;
+    justify-content: space-between;
+  }
+  .cx-qty-col {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12.5px;
+    color: var(--mut);
+  }
+  .cx-qty-col input.num {
+    width: 65px;
+    background: var(--panel2);
+  }
+  .pnl-gross-row {
+    font-weight: 700 !important;
+    background: rgba(203, 164, 94, 0.08) !important;
+    border-top: 1px solid var(--gold-dim) !important;
+    border-bottom: 1px solid var(--gold-dim) !important;
+  }
+  .pnl-gross-row td {
+    color: var(--gold-soft) !important;
+  }
+  .pnl-net-row {
+    font-weight: 700 !important;
+    border-top: 1px solid var(--line) !important;
+    border-bottom: 2px double var(--line2) !important;
+  }
+</style>
+</head>
+<body>
+<div class="grain"></div><div class="scanline"></div><div class="vignette"></div>
+
+<!-- HERO -->
+<header class="hero">
+  <div class="layer l-glow" data-depth="0.15"></div>
+  <div class="layer l-grid" data-depth="0.30"></div>
+  <div class="layer l-rings" data-depth="0.45">
+    <span class="ring" style="width:42vmin;height:42vmin"></span>
+    <span class="ring" style="width:64vmin;height:64vmin"></span>
+    <span class="ring" style="width:88vmin;height:88vmin"></span>
+  </div>
+  <div class="hero-inner reveal in">
+    <div class="eyebrow">Especialista Independiente · Madrid</div>
+    <h1>Manufaktur <em>Porsche</em><br>Simulador de Viabilidad</h1>
+    <p>Cada palanca del negocio, en tus manos. Mueve una variable y observa, al instante, en qué mes la caja se queda en rojo.</p>
+    <a class="obs-link" href="parque.html">🗺 Observatorio del Parque — 77.541 Porsches sobre el mapa →</a>
+  </div>
+  <div class="scrollcue"><span>Desliza</span><span class="line"></span></div>
+</header>
+
+<!-- SIMULATOR -->
+<section class="block" id="sim">
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <div class="k">01 · El motor financiero</div>
+      <h2>Toca <em>todas</em> las variables</h2>
+      <p>Sliders para explorar rápido, casillas numéricas para precisión al euro. Cuatro escenarios de partida con un toque.</p>
+    </div>
+    <div class="sim reveal">
+      <!-- CONTROLS -->
+      <aside class="glass controls" id="controls">
+        <!-- Escenarios -->
+        <div class="presets" id="presets">
+          <button class="preset" data-p="estudios"><span>Abrir a mitad de estudios</span><small>débil</small></button>
+          <button class="preset" data-p="acabar"><span>Acabar estudios primero</span><small>2 productivos</small></button>
+          <button class="preset" data-p="unsocio"><span>Abrir antes · 1 socio</span><small>el otro produce</small></button>
+          <button class="preset" data-p="austero"><span>Arranque austero</span><small>sueldos mínimos</small></button>
+        </div>
+        <div class="presets" id="customPresets"></div>
+        <div class="save-box">
+          <input type="text" id="scenarioName" class="scenario-name" placeholder="Nombre del nuevo escenario…" maxlength="40">
+          <textarea id="scenarioDesc" class="scenario-name scenario-desc" placeholder="Descripción (opcional): qué prueba este escenario…" maxlength="280" rows="2"></textarea>
+          <button id="saveScenario" class="btn-gold">+ Guardar escenario actual</button>
+          <button id="shareScenario" class="btn-ghost">🔗 Copiar enlace del escenario actual</button>
+          <div class="custom-msg" id="customMsg"></div>
+        </div>
+
+        <!-- Buscador + colapsar/expandir -->
+        <div class="ctrl-tools">
+          <input type="text" id="ctrlSearch" class="ctrl-search" placeholder="🔎 Buscar variable…">
+          <button id="collapseAll" class="ctrl-btn" title="Colapsar / expandir todo">⇕</button>
+        </div>
+
+        <!-- 1 · PROYECCIÓN -->
+        <div class="acc-group">1 · Proyección</div>
+        <details class="acc" open><summary>Horizonte y apertura</summary>
+          <div data-f="horizon" data-min="6" data-max="36" data-step="3" data-label="Meses a proyectar" data-unit="m"></div>
+          <div data-f="mesApertura" data-min="1" data-max="12" data-step="1" data-label="Mes de apertura (1=ene)" data-unit=""></div>
+          <div class="field"><div class="lab"><span>Estacionalidad Madrid <span class="help" data-help="Aplica la realidad del calendario: agosto se desploma (~35% de actividad por cierre vacacional), julio y diciembre flojean, picos pre-ITV y pre-verano. Ejemplo: si tu colchón es justo, la muerte llega en septiembre, tras un agosto a medio gas.">i</span></span></div>
+            <div class="toggle" id="estacionalT"><button data-v="0">No</button><button data-v="1" class="on">Sí</button></div></div>
+        </details>
+
+        <!-- 2 · INVERSIÓN Y FINANCIACIÓN -->
+        <div class="acc-group">2 · Inversión y financiación</div>
+        <details class="acc" open><summary>Capital y financiación</summary>
+          <div data-f="cap"  data-min="0" data-max="300000" data-step="5000"  data-label="Capital propio" data-unit="€"></div>
+          <div data-f="ico"  data-min="0" data-max="150000" data-step="5000"  data-label="Importe ICO" data-unit="€"></div>
+          <div data-f="icoRate" data-min="0" data-max="0.10" data-step="0.005" data-label="Interés ICO" data-unit="%"></div>
+          <div data-f="icoTerm" data-min="24" data-max="120" data-step="6" data-label="Plazo ICO" data-unit="m"></div>
+          <div data-f="icoCar"  data-min="0" data-max="24" data-step="1" data-label="Carencia ICO" data-unit="m"></div>
+        </details>
+        <details class="acc"><summary>Inversión inicial · CAPEX</summary>
+          <div class="capex-summary">
+            <div class="cs"><div class="l">CAPEX (base)</div><div class="v" id="capexTotal"></div></div>
+            <div class="cs"><div class="l">IVA (21%)</div><div class="v" id="capexIva"></div></div>
+            <div class="cs"><div class="l">CAPEX (con IVA)</div><div class="v" id="capexConIva"></div></div>
+            <div class="cs"><div class="l">Capital disp.</div><div class="v" id="capexDisp"></div></div>
+            <div class="cs good"><div class="l">Caja inicial (M0)</div><div class="v" id="capexCaja"></div></div>
+          </div>
+          <div class="warn" id="capexWarn" hidden></div>
+          <div id="capexList"></div>
+        </details>
+        <details class="acc"><summary>Leasing de equipo</summary>
+          <div data-f="leaseVal" data-min="0" data-max="80000" data-step="1000" data-label="Equipo en leasing" data-unit="€"></div>
+          <div data-f="leaseTerm" data-min="24" data-max="84" data-step="6" data-label="Plazo leasing" data-unit="m"></div>
+          <div data-f="leaseRate" data-min="0" data-max="0.12" data-step="0.005" data-label="Interés leasing" data-unit="%"></div>
+        </details>
+        <details class="acc"><summary>Local</summary>
+          <div data-f="m2"  data-min="0" data-max="700" data-step="10" data-label="Superficie nave" data-unit="m²"></div>
+          <div data-f="eurm2" data-min="0" data-max="12" data-step="0.5" data-label="Precio alquiler" data-unit="€/m²"></div>
+          <div class="derived" id="d_alq"></div>
+        </details>
+
+        <!-- 3 · EQUIPO -->
+        <div class="acc-group">3 · Equipo</div>
+        <details class="acc" open><summary>Socios y plantilla</summary>
+          <div class="field"><div class="lab"><span>Socios a sueldo <span class="help" data-help="Número de socios que cobran. Cada uno suma coste fijo. Ejemplo: 2 socios a 3.800 € de coste empresa = 7.600 €/mes.">i</span></span></div>
+            <div class="toggle" id="ns"><button data-v="1">1</button><button data-v="2" class="on">2</button><button data-v="3">3</button></div></div>
+          <div class="field"><div class="lab"><span>¿Los socios producen? <span class="help" data-help="Si meten mano a los coches, suman horas facturables. Si estudian o llevan oficina, no.">i</span></span></div>
+            <div class="toggle" id="socioProd"><button data-v="0" class="on">No</button><button data-v="1">Sí</button></div></div>
+          <div data-f="nsProd" data-min="0" data-max="3" data-step="1" data-label="Socios que producen" data-unit=""></div>
+          <div data-f="socioProdPct" data-min="0.0" data-max="1.0" data-step="0.05" data-label="% jornada mecánica / socio" data-unit="%"></div>
+          <div data-f="cse" data-min="0" data-max="5000" data-step="100" data-label="Coste empresa/socio" data-unit="€"></div>
+          <div data-f="jefeSal" data-min="0" data-max="6000" data-step="100" data-label="Jefe de mecánicos" data-unit="€"></div>
+          <div data-f="mecCount" data-min="0" data-max="4" data-step="1" data-label="Mecánicos extra" data-unit=""></div>
+          <div data-f="mecMonth" data-min="1" data-max="36" data-step="1" data-label="Mes de incorporación" data-unit="m"></div>
+          <div data-f="mecSal" data-min="0" data-max="4500" data-step="100" data-label="Coste por mecánico extra" data-unit="€"></div>
+        </details>
+        <details class="acc"><summary>Recepción / administración</summary>
+          <div class="field"><div class="lab"><span>Contratar recepcionista <span class="help" data-help="Atiende cliente, teléfono y agenda, liberando a los mecánicos para producir. En un taller boutique la atención es parte del producto.">i</span></span></div>
+            <div class="toggle" id="recepEnableT"><button data-v="0" class="on">No</button><button data-v="1">Sí</button></div></div>
+          <div data-f="recepMes" data-min="1" data-max="36" data-step="1" data-label="Mes de incorporación" data-unit="m"></div>
+          <div data-f="recepSal" data-min="0" data-max="3000" data-step="100" data-label="Coste recepcionista" data-unit="€"></div>
+        </details>
+
+        <!-- 4 · INGRESOS Y PRODUCTIVIDAD -->
+        <div class="acc-group">4 · Ingresos y productividad</div>
+        <details class="acc" open><summary>Ingresos del taller</summary>
+          <div data-f="tar" data-min="0" data-max="140" data-step="5" data-label="Tarifa mano de obra" data-unit="€/h"></div>
+          <div data-f="ratio" data-min="0" data-max="1.5" data-step="0.05" data-label="Recambios sobre MO" data-unit="x"></div>
+          <div data-f="mgn" data-min="0" data-max="0.6" data-step="0.05" data-label="Margen recambios" data-unit="%"></div>
+        </details>
+        <details class="acc" open><summary>Productividad</summary>
+          <div data-f="presence" data-min="0" data-max="200" data-step="5" data-label="Horas presencia/mes" data-unit="h"></div>
+          <div data-f="prodStart" data-min="0" data-max="0.9" data-step="0.05" data-label="% facturable inicial" data-unit="%"></div>
+          <div data-f="prodEnd" data-min="0" data-max="0.95" data-step="0.05" data-label="% facturable final" data-unit="%"></div>
+          <div data-f="curve" data-min="0.4" data-max="1.6" data-step="0.05" data-label="Forma de la rampa" data-unit=""></div>
+        </details>
+
+        <!-- 5 · SERVICIOS DIFERENCIALES -->
+        <div class="acc-group">5 · Servicios diferenciales</div>
+        <details class="acc"><summary>Diagnóstico a domicilio</summary>
+          <div class="field"><div class="lab"><span>Activar servicio <span class="help" data-help="Servicio diferencial: vais a casa del cliente, diagnosticáis y él sigue usando el coche hasta que llegan las piezas. Reduce el tiempo que el coche pasa parado en el taller.">i</span></span></div>
+            <div class="toggle" id="domEnable"><button data-v="0">No</button><button data-v="1" class="on">Sí</button></div></div>
+          <div data-f="domMes" data-min="1" data-max="36" data-step="1" data-label="Mes de activación" data-unit="m"></div>
+          <div data-f="domVisitsM" data-min="0" data-max="60" data-step="2" data-label="Visitas/mes" data-unit=""></div>
+          <div data-f="domFee" data-min="0" data-max="150" data-step="5" data-label="Precio por visita" data-unit="€"></div>
+          <div data-f="domHours" data-min="0" data-max="2" data-step="0.25" data-label="Horas por visita" data-unit="h"></div>
+          <div data-f="domVehLease" data-min="0" data-max="900" data-step="20" data-label="Vehículo (renting)" data-unit="€"></div>
+          <div data-f="domFuel" data-min="0" data-max="700" data-step="20" data-label="Combustible/manten." data-unit="€"></div>
+          <div data-f="domSeg" data-min="0" data-max="300" data-step="10" data-label="Seguro vehículo" data-unit="€"></div>
+        </details>
+        <details class="acc"><summary>Chapa y pintura</summary>
+          <div class="field"><div class="lab"><span>Activar chapa y pintura <span class="help" data-help="Subfase de la Fase 1: añade cabina de pintura, material, un responsable e ingresos propios. Diferencia: entregar el coche acabado sin subcontratar.">i</span></span></div>
+            <div class="toggle" id="cpEnableT"><button data-v="0" class="on">No</button><button data-v="1">Sí</button></div></div>
+          <div data-f="cpMes" data-min="1" data-max="36" data-step="1" data-label="Mes de inicio" data-unit="m"></div>
+          <div data-f="cpIngresoMes" data-min="0" data-max="20000" data-step="500" data-label="Facturación/mes" data-unit="€"></div>
+          <div data-f="cpResponsableSal" data-min="0" data-max="4500" data-step="100" data-label="Responsable chapa/pintura" data-unit="€"></div>
+          <div data-f="cpMaterialMes" data-min="0" data-max="4000" data-step="100" data-label="Material/mes" data-unit="€"></div>
+        </details>
+
+        <!-- 6 · COSTES FIJOS -->
+        <div class="acc-group">6 · Costes fijos</div>
+        <details class="acc"><summary>Suministros y servicios</summary>
+          <div data-f="sumi" data-min="0" data-max="2500" data-step="50" data-label="Luz / electricidad" data-unit="€"></div>
+          <div data-f="agua" data-min="0" data-max="400" data-step="10" data-label="Agua" data-unit="€"></div>
+          <div data-f="internet" data-min="0" data-max="300" data-step="10" data-label="Internet / telefonía" data-unit="€"></div>
+        </details>
+        <details class="acc"><summary>Otros costes fijos</summary>
+          <div data-f="piwis" data-min="0" data-max="2000" data-step="50" data-label="PIWIS / mes" data-unit="€"></div>
+          <div data-f="seg" data-min="0" data-max="1200" data-step="50" data-label="Seguros" data-unit="€"></div>
+          <div data-f="ges" data-min="0" data-max="900" data-step="25" data-label="Gestoría" data-unit="€"></div>
+          <div data-f="mkt" data-min="0" data-max="4000" data-step="100" data-label="Marketing / varios" data-unit="€"></div>
+        </details>
+        <details class="acc"><summary>Normativa, limpieza y seguridad</summary>
+          <div data-f="limpieza" data-min="0" data-max="1500" data-step="50" data-label="Limpieza taller/oficina/baños" data-unit="€"></div>
+          <div data-f="lavadoMonos" data-min="0" data-max="600" data-step="20" data-label="Lavado industrial de monos" data-unit="€"></div>
+          <div data-f="pciMant" data-min="0" data-max="200" data-step="5" data-label="Mantenimiento PCI (RIPCI)" data-unit="€"></div>
+          <div data-f="cra" data-min="0" data-max="200" data-step="5" data-label="Alarma CRA 24h" data-unit="€"></div>
+        </details>
+
+        <!-- 7 · FISCALIDAD -->
+        <div class="acc-group">7 · Fiscalidad y provisiones</div>
+        <details class="acc"><summary>Impuestos, garantía e IPC</summary>
+          <div class="field"><div class="lab"><span>Impuesto de Sociedades <span class="help" data-help="Liquida el IS sobre el beneficio anual: 15% los dos primeros años con beneficio (tipo reducido de nuevas empresas), 25% después. Las pérdidas compensan beneficios futuros. Ejemplo: 40.000 € de beneficio año 2 = ~6.000 € de caja.">i</span></span></div>
+            <div class="toggle" id="impuestosT"><button data-v="0">No</button><button data-v="1" class="on">Sí</button></div></div>
+          <div data-f="garantiaPct" data-min="0" data-max="0.05" data-step="0.005" data-label="Provisión de garantía" data-unit="%"></div>
+          <div data-f="ipc" data-min="0" data-max="0.06" data-step="0.005" data-label="IPC anual (costes año 2+)" data-unit="%"></div>
+        </details>
+
+        <!-- 8 · FASE 2 -->
+        <div class="acc-group">8 · Fase 2 · Compraventa</div>
+        <details class="acc"><summary>Compraventa de coches</summary>
+          <div class="field"><div class="lab"><span>Activar compraventa <span class="help" data-help="Fase 2: comprar Porsche con potencial, reacondicionarlos en horas muertas y venderlos certificados. Compra con miedo (barato), vende sin miedo (caro). El radar avisa si lo activas demasiado pronto.">i</span></span></div>
+            <div class="toggle" id="f2EnableT"><button data-v="0" class="on">No</button><button data-v="1">Sí</button></div></div>
+          <div data-f="f2MesInicio" data-min="1" data-max="36" data-step="1" data-label="Mes del primer coche" data-unit="m"></div>
+          <div data-f="f2CochesMes" data-min="0" data-max="2" data-step="0.25" data-label="Coches por mes" data-unit=""></div>
+          <div data-f="f2Capital" data-min="0" data-max="40000" data-step="1000" data-label="Capital por coche" data-unit="€"></div>
+          <div data-f="f2Margen" data-min="0" data-max="12000" data-step="500" data-label="Margen por coche" data-unit="€"></div>
+          <div data-f="f2CicloMeses" data-min="1" data-max="6" data-step="1" data-label="Ciclo compra→venta" data-unit="m"></div>
+          <div data-f="f2Horas" data-min="0" data-max="60" data-step="5" data-label="Horas taller por coche" data-unit="h"></div>
+        </details>
+
+        <!-- 9 · AYUDAS -->
+        <div class="acc-group">9 · Ayudas y subvenciones</div>
+        <details class="acc"><summary>Ayudas 2026 (Estado · Madrid)</summary>
+          <div class="ayudas-intro">Actívalas para ver su impacto. Pulsa la <span class="help" data-help="Datos orientativos de 2026 (Estado, Comunidad de Madrid). Las convocatorias cambian y tienen requisitos: verifica en BOCM, Sede de la Comunidad de Madrid y SEPE antes de contar con cada ayuda.">i</span> de cada una para ver requisitos.</div>
+          <div class="ayudas-list" id="ayudasList"></div>
+        </details>
+      </aside>
+
+      <!-- STAGE -->
+      <div class="stage">
+        <div class="kpis">
+          <div class="kpi glass" id="k_solv"><div class="klab"><span id="kl_solv">Estado</span> <span class="help" id="h_solv">i</span></div><div class="kval" id="v_solv">—</div><div class="ksub" id="s_solv"></div></div>
+          <div class="kpi glass" id="k_caja"><div class="klab"><span id="kl_caja">Caja final</span> <span class="help" id="h_caja">i</span></div><div class="kval" id="v_caja">—</div><div class="ksub" id="ks_caja">colchón restante</div></div>
+          <div class="kpi glass" id="k_res"><div class="klab"><span id="kl_res">Resultado</span> <span class="help" id="h_res">i</span></div><div class="kval" id="v_res">—</div><div class="ksub" id="s_res"></div></div>
+          <div class="kpi glass" id="k_be"><div class="klab"><span id="kl_be">Equilibrio</span> <span class="help" id="h_be">i</span></div><div class="kval" id="v_be">—</div><div class="ksub" id="s_be"></div></div>
+        </div>
+
+        <div class="chartcard glass" id="chartcard">
+          <div class="chart-head"><h3>Tesorería mes a mes</h3>
+            <div class="legend layers-control">
+              <label class="layer-toggle active" id="toggle_caja">
+                <input type="checkbox" checked hidden>
+                <i style="background:var(--green)"></i>Caja
+              </label>
+              <label class="layer-toggle active" id="toggle_facturacion">
+                <input type="checkbox" checked hidden>
+                <i style="background:var(--gold)"></i>Facturación
+              </label>
+              <label class="layer-toggle active" id="toggle_beneficio">
+                <input type="checkbox" checked hidden>
+                <i style="background:var(--red-soft)"></i>Bº Neto (Resultado)
+              </label>
+            </div></div>
+          <svg id="chart" viewBox="0 0 880 360" preserveAspectRatio="xMidYMid meet"></svg>
+          <div class="tip" id="tip">&nbsp;</div>
+        </div>
+
+        <div class="insight glass" id="insight"></div>
+
+        <div class="chartcard glass riskcard" id="riskCard">
+          <div class="chart-head"><h3>Radar de riesgos · premortem</h3>
+            <span class="help" data-help="Vigila en vivo las señales de fracaso identificadas en el premortem: dependencia de ayudas, rampa lenta, colchón frágil, punto único de fallo, sobreinversión estética y tarifa de miedo. Cada aviso desaparece cuando tu configuración deja de disparar esa señal. Abajo, los riesgos que ningún simulador puede calcular: esos se gestionan con papeles y conversaciones, no con sliders.">i</span>
+          </div>
+          <div id="riskList" class="risk-list"></div>
+          <div class="risk-static">
+            <div class="risk-static-title">Riesgos no calculables (gestión humana, no sliders)</div>
+            <ul>
+              <li><b>Verificación legal:</b> confirmar con gestoría especializada que el jefe de mecánicos contratado habilita la licencia (RD 1457/1986).</li>
+              <li><b>Pacto de socios:</b> firmado antes de constituir — salidas, desempates, sueldos, qué pasa si uno no puede seguir.</li>
+              <li><b>Candidato real a jefe de mecánicos:</b> 2-3 nombres identificados 6 meses antes de abrir, no una casilla teórica.</li>
+              <li><b>Marca y comunidad:</b> presencia en la comunidad Porsche (foros, clubs, Instagram) construida ANTES de abrir, no después.</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="exportbar glass" id="exportBar">
+          <div class="exportbar-txt"><b>Exportar análisis</b><span>Descarga la simulación en Markdown y pégasela a tu consultor IA para analizarla.</span></div>
+          <button class="btn-gold" id="exportMd">⬇ Exportar .md</button>
+        </div>
+
+        <div class="chartcard glass" id="opexCard">
+          <div class="chart-head"><h3>A dónde va el dinero · coste fijo mensual</h3></div>
+          <div class="report">
+            <svg id="donut" viewBox="0 0 220 220"></svg>
+            <div class="donut-legend" id="donutLegend"></div>
+          </div>
+        </div>
+
+        <div class="chartcard glass" id="capexCard">
+          <div class="chart-head"><h3>Desglose de la inversión inicial · CAPEX</h3></div>
+          <div class="capex-bars" id="capexBars"></div>
+        </div>
+
+        <div class="chartcard glass" id="pnlCard">
+          <div class="chart-head"><h3>Cuenta de resultados · mes a mes</h3></div>
+          <div class="pnl-scroll"><table class="pnl" id="pnlTable"></table></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- PHASES -->
+<section class="block" id="fases">
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <div class="k">02 · El recorrido</div>
+      <h2>Cuatro negocios, <em>una</em> secuencia</h2>
+      <p>No se encienden a la vez. Cada fase financia la siguiente.</p>
+    </div>
+    <div class="phases">
+      <div class="phase glass reveal"><div class="pn">Fase 1</div><h4>Taller de servicio</h4><p>El núcleo de caja. Mantenimiento, diagnosis PIWIS, PPI y el servicio diferencial: diagnóstico a domicilio para que el cliente no pierda su coche durante días.</p></div>
+      <div class="phase glass reveal"><div class="pn">Fase 2</div><h4>Compraventa con valor</h4><p>Comprar con miedo, vender sin miedo. Ya simulable: actívala en los controles y el radar te dirá si es demasiado pronto.</p></div>
+      <div class="phase glass reveal"><div class="pn">Fase 3</div><h4>Restauraciones</h4><p>Restomod artesanal de alto ticket. Ciclo largo, vuestro 3D como diferenciador.</p></div>
+      <div class="phase glass reveal"><div class="pn">Fase 4</div><h4>Proyecto propio</h4><p>Vuestra firma sobre ruedas. Se financia con el éxito de las tres anteriores.</p></div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div>Modelo orientativo · datos de mercado Madrid 2026. No constituye asesoramiento financiero, fiscal ni legal.<br><a href="parque.html" style="color:var(--gold-soft);text-decoration:none">→ Observatorio del Parque Porsche España</a></div>
+  <button class="install" id="installBtn" hidden>Instalar como app</button>
+  <div style="margin-top:14px;opacity:.6">Manufaktur Porsche · Simulador de Viabilidad · PWA</div>
+</footer>
+
+<script src="js/app.js?v=8"></script>
+<script>
+if('serviceWorker' in navigator && location.protocol==='https:'){
+  window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
+}
+let deferred;
+window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();deferred=e;
+  const b=document.getElementById('installBtn');b.hidden=false;
+  b.onclick=async()=>{b.hidden=true;deferred.prompt();await deferred.userChoice;deferred=null;};});
+</script>
+</body>
+</html>
