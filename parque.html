@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#0c0c0e">
+<meta name="description" content="Observatorio del parque Porsche en España: 77.541 vehículos del registro DGT sobre un mapa interactivo.">
+<title>Observatorio del Parque · Manufaktur Porsche</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/favicon-64.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..600;1,9..144,400&family=Hanken+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
+<style>
+:root{
+  --bg:#0c0c0e;--bg2:#101013;--panel:#16161a;--panel2:#1c1c22;
+  --line:#2a2a31;--line2:#36363f;
+  --ink:#ece8df;--mut:#8d897e;--mut2:#615e57;
+  --gold:#cBA45e;--gold-soft:#d8be86;--gold-dim:#6e5e38;
+  --red:#e0483a;--red-soft:#ff7a6e;--green:#54b58a;--green-soft:#7fe0b3;
+  --teal:#5fd0c8;
+  --glass:rgba(22,22,26,.55);--glass-line:rgba(216,190,134,.18);
+}
+*{margin:0;padding:0;box-sizing:border-box;min-width:0}
+html,body{max-width:100%;overflow-x:hidden}
+body{background:var(--bg);color:var(--ink);font-family:'Hanken Grotesk',sans-serif;-webkit-font-smoothing:antialiased}
+body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:4000;opacity:.05;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence baseFrequency='.85' numOctaves='2'/%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23n)' opacity='.6'/%3E%3C/svg%3E")}
+.wrap{max-width:1500px;margin:0 auto;padding:0 26px}
+.glass{background:var(--glass);border:1px solid var(--glass-line);backdrop-filter:blur(12px);border-radius:18px}
+
+/* ===== nav ===== */
+.topnav{position:sticky;top:0;z-index:1200;display:flex;align-items:center;justify-content:space-between;
+  padding:14px 26px;background:rgba(12,12,14,.82);backdrop-filter:blur(14px);border-bottom:1px solid var(--line)}
+.topnav .brand{font-family:'Fraunces',serif;font-size:17px;letter-spacing:.02em}
+.topnav .brand em{color:var(--gold-soft);font-style:italic}
+.backlink{color:var(--mut);text-decoration:none;font-size:13px;border:1px solid var(--line2);padding:8px 14px;border-radius:999px;transition:.2s}
+.backlink:hover{color:var(--gold-soft);border-color:var(--gold-dim)}
+
+/* ===== hero ===== */
+.hero{padding:64px 0 30px;position:relative}
+.kicker{font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.35em;text-transform:uppercase;color:var(--gold);margin-bottom:16px}
+h1{font-family:'Fraunces',serif;font-weight:300;font-size:clamp(34px,5.2vw,62px);line-height:1.04}
+h1 em{font-style:italic;color:var(--gold-soft)}
+.sub{color:var(--mut);font-size:15.5px;max-width:680px;margin-top:14px;line-height:1.6}
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin:30px 0 6px}
+.kpi{padding:18px;transition:transform .25s}
+.kpi .klab{font-size:10.5px;letter-spacing:.18em;text-transform:uppercase;color:var(--mut2);font-weight:700;margin-bottom:6px}
+.kpi .kval{font-family:'Fraunces',serif;font-size:30px;color:var(--gold-soft)}
+.kpi .ksub{font-size:11.5px;color:var(--mut);margin-top:3px}
+
+/* ===== filtros ===== */
+.filters{margin:18px 0;padding:18px;position:relative;z-index:900}
+.f-row{display:flex;flex-wrap:wrap;gap:16px;align-items:flex-end}
+.f-group{display:flex;flex-direction:column;gap:7px}
+.f-label{font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--mut2);font-weight:700}
+.chips{display:flex;flex-wrap:wrap;gap:7px}
+.chip{cursor:pointer;border:1px solid var(--line2);background:var(--panel2);color:var(--mut);
+  padding:7px 13px;border-radius:999px;font-size:12.5px;font-weight:500;transition:.18s;user-select:none}
+.chip:hover{border-color:var(--gold-dim);color:var(--gold-soft)}
+.chip.on{background:var(--gold);border-color:var(--gold);color:#1a1408;font-weight:600}
+select{background:var(--panel2);border:1px solid var(--line2);color:var(--ink);font-family:'Hanken Grotesk';
+  font-size:13px;padding:9px 12px;border-radius:10px;cursor:pointer}
+select:focus{outline:none;border-color:var(--gold)}
+.range-pair{display:flex;align-items:center;gap:8px;font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--gold-soft)}
+.range-pair input[type=range]{width:110px;accent-color:var(--gold)}
+.tgl{display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;color:var(--mut);user-select:none}
+.tgl input{accent-color:var(--gold);width:16px;height:16px;cursor:pointer}
+.tgl:hover{color:var(--ink)}
+.f-count{margin-left:auto;text-align:right}
+.f-count .n{font-family:'Fraunces',serif;font-size:26px;color:var(--gold-soft)}
+.f-count .t{font-size:11px;color:var(--mut2);letter-spacing:.12em;text-transform:uppercase}
+.reset{cursor:pointer;border:1px solid var(--line2);background:transparent;color:var(--mut);font-size:12px;
+  padding:8px 13px;border-radius:999px;transition:.2s;font-family:'Hanken Grotesk'}
+.reset:hover{color:var(--red-soft);border-color:var(--red)}
+
+/* ===== mapa ===== */
+.maparea{position:relative;border-radius:20px;overflow:hidden;border:1px solid var(--glass-line);box-shadow:0 30px 80px rgba(0,0,0,.5)}
+#map{height:68vh;min-height:480px;background:#0a0a0c}
+.leaflet-container{font-family:'Hanken Grotesk',sans-serif}
+.leaflet-popup-content-wrapper{background:var(--panel);color:var(--ink);border:1px solid var(--glass-line);border-radius:12px;box-shadow:0 16px 40px rgba(0,0,0,.6)}
+.leaflet-popup-tip{background:var(--panel)}
+.leaflet-popup-content{margin:13px 16px;font-size:13px;line-height:1.5}
+.pop-t{font-family:'Fraunces',serif;font-size:16px;color:var(--gold-soft);margin-bottom:4px}
+.pop-n{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--mut)}
+.pop-d{color:var(--mut);font-size:12px;margin-top:5px;line-height:1.55}
+.layerbox{position:absolute;top:14px;right:14px;z-index:800;padding:13px 15px;max-width:240px;transition:.25s}
+.layerbox.mini .lb-body{display:none}
+.layerbox.mini .lb-toggle{transform:rotate(-90deg)}
+.lb-head{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.lb-t{font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--mut2);font-weight:700}
+.lb-toggle{cursor:pointer;background:transparent;border:none;color:var(--gold-soft);font-size:14px;transition:transform .25s;padding:0 2px}
+.lb-body{display:flex;flex-direction:column;gap:8px;margin-top:10px}
+.lyr{display:flex;align-items:center;gap:8px;cursor:pointer;font-size:12.5px;color:var(--mut);user-select:none}
+.lyr input{accent-color:var(--gold);cursor:pointer}
+.lyr:hover{color:var(--ink)}
+.lyr-sep{border-top:1px solid var(--line);padding-top:8px;margin-top:2px}
+.dot{width:11px;height:11px;border-radius:50%;flex-shrink:0}
+.legend{position:absolute;bottom:14px;left:14px;z-index:800;padding:11px 14px;font-size:11px;color:var(--mut);display:flex;align-items:center;gap:8px}
+.legend .grad{width:110px;height:8px;border-radius:4px;background:linear-gradient(90deg,rgba(203,164,94,.12),rgba(203,164,94,.9))}
+.loading{position:absolute;inset:0;z-index:900;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;background:rgba(12,12,14,.92)}
+.spinner{width:46px;height:46px;border-radius:50%;border:2px solid var(--line2);border-top-color:var(--gold);animation:spin 1s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loading .lt{font-family:'JetBrains Mono',monospace;font-size:12px;letter-spacing:.2em;text-transform:uppercase;color:var(--mut)}
+.loaderr{display:none;max-width:420px;text-align:center;color:var(--mut);font-size:14px;line-height:1.6;padding:0 20px}
+
+/* marcadores talleres — rojo pálido, nombre visible */
+.tk{display:flex;align-items:center;gap:6px;white-space:nowrap;cursor:pointer;transition:transform .15s}
+.tk:hover{transform:scale(1.06);z-index:600}
+.tk-dot{display:flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:50%;
+  background:#2a1614;border:2px solid #e8857a;color:#ff9d92;font-size:11px;font-weight:700;flex-shrink:0;box-shadow:0 3px 10px rgba(0,0,0,.5)}
+.tk-name{font-size:11px;font-weight:600;color:#ffb3a8;background:rgba(20,12,12,.78);padding:2px 7px;border-radius:6px;
+  text-shadow:0 1px 2px rgba(0,0,0,.8);max-width:130px;overflow:hidden;text-overflow:ellipsis}
+.hide-text .tk-name, .hide-taller-names .tk-name{display:none}
+.pop-w{display:inline-block;margin-top:7px;color:var(--gold-soft);text-decoration:none;font-size:12px;font-family:'JetBrains Mono',monospace}
+.pop-w:hover{text-decoration:underline}
+/* burbujas municipios con número dentro */
+.bub{display:flex;align-items:center;justify-content:center;border-radius:50%;
+  background:radial-gradient(circle at 35% 30%,rgba(216,190,134,.5),rgba(203,164,94,.28));
+  border:1px solid rgba(216,190,134,.7);box-shadow:0 0 16px rgba(203,164,94,.25);transition:transform .15s}
+.bub:hover{transform:scale(1.12)}
+.bub span{font-family:'JetBrains Mono',monospace;font-size:10.5px;font-weight:600;color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.9)}
+/* zonas candidatas */
+.zona-pulse{animation:zp 2.6s ease-out infinite}
+@keyframes zp{0%{opacity:.9}50%{opacity:.4}100%{opacity:.9}}
+/* botón pantalla completa */
+.fsbtn{position:absolute;top:14px;left:14px;z-index:3500;cursor:pointer;border:1px solid var(--glass-line);
+  background:rgba(12,12,14,.8);backdrop-filter:blur(8px);color:var(--gold-soft);font-family:'Hanken Grotesk';
+  font-size:12.5px;padding:9px 14px;border-radius:10px;transition:.2s}
+.fsbtn:hover{background:rgba(203,164,94,.16)}
+body.mapfull{overflow:hidden}
+body.mapfull .maparea{position:fixed;inset:0;z-index:3000;border-radius:0;border:none}
+body.mapfull #map{height:100vh;min-height:0}
+body.mapfull .fsbtn{z-index:3300}
+body.mapfull .layerbox{z-index:3200}
+/* filtros flotantes en fullscreen */
+.fs-filters{display:none}
+body.mapfull .fs-filters{display:flex;flex-wrap:wrap;gap:8px;position:fixed;top:64px;left:14px;right:270px;z-index:3100;
+  padding:12px 14px;max-height:34vh;overflow:auto;align-items:center}
+body.mapfull .fs-filters .chip{font-size:12px;padding:6px 11px}
+body.mapfull .fs-filters select{font-size:12px;padding:7px 10px}
+@media(max-width:900px){
+  body.mapfull .fs-filters{right:14px;top:110px}
+}
+
+/* ===== rankings ===== */
+.grids{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin:26px 0}
+.card{padding:22px}
+.card h3{font-family:'Fraunces',serif;font-weight:400;font-size:20px;margin-bottom:14px}
+.bars{display:flex;flex-direction:column;gap:9px}
+.bar{display:grid;grid-template-columns:170px 1fr 64px;gap:10px;align-items:center;font-size:12.5px}
+.bar .bl{color:var(--mut);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bar .bt{height:9px;border-radius:5px;background:var(--panel2);overflow:hidden}
+.bar .bf{height:100%;border-radius:5px;background:linear-gradient(90deg,var(--gold-dim),var(--gold-soft));width:0;transition:width .7s cubic-bezier(.2,.7,.2,1)}
+.bar .bn{font-family:'JetBrains Mono',monospace;font-size:11.5px;color:var(--gold-soft);text-align:right}
+
+/* ===== zonas candidatas ===== */
+.zonas{margin:10px 0 40px}
+.zonas h2{font-family:'Fraunces',serif;font-weight:300;font-size:clamp(26px,3.4vw,40px);margin:34px 0 8px}
+.zonas h2 em{font-style:italic;color:var(--gold-soft)}
+.zonas .zsub{color:var(--mut);font-size:14px;max-width:760px;line-height:1.6;margin-bottom:20px}
+.zreg{font-family:'JetBrains Mono',monospace;font-size:12px;letter-spacing:.2em;text-transform:uppercase;color:var(--gold);margin:24px 0 14px}
+.zcards{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+.zcard{padding:22px;position:relative;overflow:hidden;transition:transform .25s,border-color .25s}
+.zcard:hover{transform:translateY(-4px);border-color:var(--sc,var(--gold-dim))}
+.zscore{position:absolute;top:18px;right:18px;width:42px;height:42px;border-radius:50%;border:2px solid;
+  display:flex;align-items:center;justify-content:center;font-family:'Fraunces',serif;font-size:18px;font-weight:500}
+.zcard .zn{font-family:'JetBrains Mono',monospace;font-size:10.5px;letter-spacing:.25em;color:var(--gold);text-transform:uppercase}
+.zcard h4{font-family:'Fraunces',serif;font-weight:400;font-size:20px;margin:8px 0 12px;padding-right:46px}
+.zmetrics{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px}
+.zm{font-size:10px;color:var(--mut2);text-transform:uppercase;letter-spacing:.05em;line-height:1.3}
+.zm span{display:block;font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--gold-soft);letter-spacing:0;margin-bottom:1px}
+.zcard p{font-size:12.5px;color:var(--mut);line-height:1.55}
+.zcard .zbtn{margin-top:14px;display:inline-block;cursor:pointer;font-size:12px;color:var(--gold-soft);border:1px solid var(--gold-dim);padding:7px 14px;border-radius:999px;transition:.2s;user-select:none}
+.zcard .zbtn:hover{background:rgba(203,164,94,.12)}
+
+footer{border-top:1px solid var(--line);padding:30px 0 44px;margin-top:20px;color:var(--mut2);font-size:12px;line-height:1.7}
+footer a{color:var(--mut);text-decoration:none}footer a:hover{color:var(--gold-soft)}
+
+.reveal{opacity:0;transform:translateY(18px);transition:opacity .7s,transform .7s}
+.reveal.in{opacity:1;transform:none}
+@media(prefers-reduced-motion:reduce){.reveal{transition:none;opacity:1;transform:none}.zona-pulse{animation:none}}
+
+/* ===== móvil ===== */
+@media(max-width:900px){
+  .kpis{grid-template-columns:1fr 1fr;gap:10px}
+  .grids{grid-template-columns:1fr}
+  .zcards{grid-template-columns:1fr}
+  .bar{grid-template-columns:120px 1fr 56px}
+}
+@media(max-width:640px){
+  .wrap{padding:0 16px}
+  .hero{padding:40px 0 20px}
+  #map{height:62vh;min-height:420px}
+  .f-row{gap:12px}
+  .f-count{margin-left:0;width:100%;text-align:left}
+  .layerbox{max-width:180px;padding:10px 12px}
+  .kpi .kval{font-size:24px}
+  .topnav{padding:12px 16px}
+}
+
+  /* en fullscreen los filtros van dentro de #fsFilters */
+  body.mapfull #filtersHome{display:none}
+  body.mapfull .fs-filters .filters{position:static;padding:0;background:transparent;border:none;backdrop-filter:none;width:100%}
+  body.mapfull .fs-filters .f-count{display:none}
+</style>
+</head>
+<body>
+
+<nav class="topnav">
+  <div class="brand">Manufaktur <em>Porsche</em> · Observatorio</div>
+  <div style="display:flex;gap:10px">
+    <a class="backlink" href="taller.html">📐 Distribución</a>
+    <a class="backlink" href="index.html">← Simulador</a>
+  </div>
+</nav>
+
+<header class="hero wrap">
+  <div class="kicker">Registro DGT · Marzo 2026 · España</div>
+  <h1>El parque Porsche, <em>sobre el mapa</em></h1>
+  <p class="sub">77.541 Porsches registrados en España, municipio a municipio. Filtra por modelo, generación, etiqueta, potencia, combustible o garantía — y descubre dónde están los clientes… y dónde no hay nadie atendiéndolos.</p>
+  <div class="kpis">
+    <div class="kpi glass reveal"><div class="klab">Vehículos visibles</div><div class="kval" id="kTotal">—</div><div class="ksub" id="kPct"></div></div>
+    <div class="kpi glass reveal"><div class="klab">En garantía oficial</div><div class="kval" id="kGar">—</div><div class="ksub">1ª matr. &lt; 2 años</div></div>
+    <div class="kpi glass reveal"><div class="klab">Clásicos (30+ años)</div><div class="kval" id="kClas">—</div><div class="ksub">objetivo restomod</div></div>
+    <div class="kpi glass reveal"><div class="klab">Provincia líder</div><div class="kval" id="kProv">—</div><div class="ksub" id="kProvN"></div></div>
+  </div>
+</header>
+
+<main class="wrap">
+  <div id="filtersHome"><section class="filters glass reveal">
+    <div class="f-row" style="margin-bottom:14px">
+      <div class="f-group" style="flex:1 1 100%">
+        <div class="f-label">Modelo</div>
+        <div class="chips" id="famChips"></div>
+      </div>
+    </div>
+    <div class="f-row">
+      <div class="f-group"><div class="f-label">Generación / versión</div><select id="genSel"><option value="-1">Todas</option></select></div>
+      <div class="f-group"><div class="f-label">Combustible</div><select id="fuelSel"><option value="-1">Todos</option></select></div>
+      <div class="f-group"><div class="f-label">Etiqueta DGT</div><select id="distSel"><option value="-1">Todas</option></select></div>
+      <div class="f-group"><div class="f-label">Año 1ª matriculación</div>
+        <div class="range-pair"><span id="yMinL">1950</span><input type="range" id="yMin" min="1950" max="2026" value="1950"><input type="range" id="yMax" min="1950" max="2026" value="2026"><span id="yMaxL">2026</span></div></div>
+      <div class="f-group"><div class="f-label">Potencia (CV)</div>
+        <div class="range-pair"><span id="cMinL">0</span><input type="range" id="cMin" min="0" max="800" step="10" value="0"><input type="range" id="cMax" min="0" max="800" step="10" value="800"><span id="cMaxL">800+</span></div></div>
+      <div class="f-group"><div class="f-label">Condición</div>
+        <label class="tgl"><input type="checkbox" id="fGar"> Solo en garantía</label>
+        <label class="tgl"><input type="checkbox" id="fClas"> Solo clásicos</label>
+      </div>
+      <div class="f-group"><div class="f-label">Titular</div>
+        <label class="tgl"><input type="checkbox" id="fJur"> Solo empresas</label>
+        <label class="tgl"><input type="checkbox" id="fRent"> Solo renting</label>
+      </div>
+      <div class="f-count"><div class="n" id="fCount">—</div><div class="t">vehículos en el mapa</div>
+        <button class="reset" id="resetBtn" style="margin-top:8px">↺ Limpiar filtros</button></div>
+    </div>
+  </section></div>
+
+  <section class="maparea reveal">
+    <div id="map"></div>
+    <button class="fsbtn" id="fsBtn">⛶ Pantalla completa</button>
+    <div class="layerbox glass" id="layerbox">
+      <div class="lb-head"><div class="lb-t">Capas</div><button class="lb-toggle" id="lbToggle" title="Minimizar">▾</button></div>
+      <div class="lb-body">
+        <label class="lyr"><input type="checkbox" id="lyProv" checked><span class="dot" style="background:rgba(203,164,94,.5)"></span> Densidad provincial</label>
+        <label class="lyr"><input type="checkbox" id="lyMuni" checked><span class="dot" style="background:var(--gold)"></span> Municipios (burbujas)</label>
+        <label class="lyr"><input type="checkbox" id="lyOf" checked><span class="dot" style="background:#e8857a"></span> Centros oficiales</label>
+        <label class="lyr"><input type="checkbox" id="lyEs" checked><span class="dot" style="background:#e8857a"></span> Especialistas indep.</label>
+        <label class="lyr"><input type="checkbox" id="lyBt" checked><span class="dot" style="background:#e8857a"></span> Boutiques compraventa</label>
+        <label class="lyr"><input type="checkbox" id="lyZn" checked><span class="dot" style="background:var(--green-soft)"></span> Zonas candidatas</label>
+        <label class="lyr lyr-sep"><input type="checkbox" id="lyText" checked><span class="dot" style="background:var(--mut)"></span> Mostrar textos</label>
+      </div>
+    </div>
+    <div class="fs-filters glass" id="fsFilters"></div>
+    <div class="legend glass"><span>Parque</span><div class="grad"></div><span>denso</span></div>
+    <div class="loading" id="loading">
+      <div class="spinner"></div>
+      <div class="lt">Cargando 77.541 vehículos…</div>
+      <div class="loaderr" id="loaderr">No se han podido cargar los datos. Este módulo lee ficheros locales, así que necesita verse desde la web publicada (GitHub Pages), no desde un archivo suelto.</div>
+    </div>
+  </section>
+
+  <section class="grids">
+    <div class="card glass reveal"><h3>Top municipios</h3><div class="bars" id="topMunis"></div></div>
+    <div class="card glass reveal"><h3>Top provincias</h3><div class="bars" id="topProvs"></div></div>
+  </section>
+
+  <section class="zonas">
+    <h2>Dónde abrir: <em>zonas candidatas</em></h2>
+    <p class="zsub">No solo cuenta el número de coches. Cada zona se puntúa (0-100) cruzando cuatro factores: tamaño del parque, competencia de especialistas, facturación potencial estimada y visibilidad para la boutique. Pulsa una tarjeta para volar a la zona en el mapa.</p>
+    <h3 class="zreg">Comunidad de Madrid</h3>
+    <div class="zcards" id="zCardsMad"></div>
+    <h3 class="zreg">Resto de España</h3>
+    <div class="zcards" id="zCardsEsp"></div>
+  </section>
+</main>
+
+<footer><div class="wrap">
+  Fuente: Microdatos del parque de vehículos · DGT (marzo 2026) · Elaboración propia.<br>
+  Talleres y centros: censo orientativo elaborado con búsqueda web — verificar antes de decisiones comerciales. · <a href="index.html">← Volver al simulador</a>
+</div></footer>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+<script src="js/parque.js"></script>
+</body>
+</html>
